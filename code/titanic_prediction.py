@@ -24,37 +24,44 @@ training_set = pd.read_csv('train.csv')
 test_set = pd.read_csv('test.csv')
 
 # preprocessing the data
-training_set = training_set.iloc[:, [1,2,4,5,6,7,11]].values
-test_set = test_set.iloc[:, [1,3,4,5,6,10]]
+X_train = training_set.iloc[:, [2,4,5,6,7,11]].values
+Y_train = training_set.iloc[: , 1].values
+Y_train = np.reshape(Y_train, (-1, 1))
+
+test_set = test_set.iloc[:, [1,3,4,5,6,10]].values
 
 ## replacing missing values
 
 ### replacing NaN to string values
-training_set[pd.isnull(training_set)] = 'NaN'
+X_train[pd.isnull(X_train)] = 'NaN'
 
 ### replacing numeric values
 from sklearn.impute import SimpleImputer
 
 imputer_training = SimpleImputer(missing_values=np.nan, strategy='mean')
-imputer_training  = imputer_training.fit(training_set[:, [0,1,3,4,5]])
-training_set[:, [0,1,3,4,5]] = imputer_training.transform(training_set[:, [0,1,3,4,5]])
+imputer_training  = imputer_training.fit(X_train[:, [0, 2, 3, 4]])
+X_train[:, [0, 2, 3, 4]] = imputer_training.transform(X_train[:, [0, 2, 3, 4]])
+
+imputer_test = SimpleImputer(missing_values=np.nan, strategy='mean')
+imputer_test = imputer_test.fit(training_set[: , [0,2,3,4]])
+training_set[: , [0,2,3,4]] = imputer_test.transform(training_set[: , [0,2,3,4]])
 
 ## encoding the variables
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 
 label_encoder = LabelEncoder()
-training_set[:, 2] = label_encoder.fit_transform(training_set[:, 2])
-training_set[:, 6] = label_encoder.fit_transform(training_set[:, 6])
+X_train[:, 1] = label_encoder.fit_transform(X_train[:, 1])
+X_train[:, 5] = label_encoder.fit_transform(X_train[:, 5])
 
 column_transform = ColumnTransformer([
-        ('Pclass', OneHotEncoder(categories='auto'), [1]),
-        ('Sex', OneHotEncoder(categories='auto'), [2]),
-        ('Embarked', OneHotEncoder(categories='auto'), [6])
+        ('Pclass', OneHotEncoder(categories='auto'), [0]),
+        ('Sex', OneHotEncoder(categories='auto'), [1]),
+        ('Embarked', OneHotEncoder(categories='auto'), [5])
 ], remainder='passthrough')
 
-training_set = column_transform.fit_transform(training_set)
-training_set = training_set.astype(np.float64)
+X_train = column_transform.fit_transform(X_train)
+X_train = X_train.astype(np.float64)
 
 # removing  dummy variables to avoid the dummy variable trap 
 
@@ -65,4 +72,7 @@ regressor = DecisionTreeRegressor(criterion = 'mse',
                                   random_state = 0)
 
 # fitting the model
-#regressor.fit(training_set, test_set)
+regressor.fit(X_train, Y_train)
+
+# predicting the results
+regressor.predict(test_set)
