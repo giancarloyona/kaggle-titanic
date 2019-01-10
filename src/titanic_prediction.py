@@ -88,8 +88,8 @@ test_set = test_set.astype(np.float64)
 # removing  dummy variables to avoid the dummy variable trap 
 
 # generating the model
-from sklearn.tree import DecisionTreeRegressor
-regressor = DecisionTreeRegressor(criterion = 'mse', 
+from sklearn.tree import DecisionTreeClassifier
+regressor = DecisionTreeClassifier(criterion = 'entropy', 
                                   splitter = 'best', 
                                   random_state = 0)
 
