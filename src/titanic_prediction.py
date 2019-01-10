@@ -4,7 +4,7 @@
     This is a starter's attempt to generate a survival predictor using 
     Titanic's sinking data.
     
-    This first model will use the Decision Tree Regression as the prediction
+    This first model will use the Decision Tree Classifier as the prediction
     algorithm.
     
     @author: giancarloyona
@@ -98,5 +98,4 @@ regressor.fit(X_train, Y_train)
 
 # predicting the results
 prediction = regressor.predict(test_set)
-prediction = np.reshape(prediction, (-1, 1))
-np.around(prediction, 0)
+#prediction = np.reshape(prediction, (-1, 1))
