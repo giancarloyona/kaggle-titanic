@@ -26,7 +26,7 @@ train_dataset.drop(labels = ['Survived'], inplace = True, axis = 1)
 
 labels = train_dataset.columns.values
 full_dataset = pd.DataFrame(np.append(train_dataset, test_dataset, axis = 0), columns = labels)
-full_dataset.drop(labels = ['PassengerId'], inplace = True, axis = 1)
+full_dataset.drop(labels = ['PassengerId', 'Ticket'], inplace = True, axis = 1)
 
 del labels
 
@@ -67,6 +67,8 @@ title_dict = {
     "Lady" : "Royalty"
 }
 
+del name
+
 full_dataset['Title'] = full_dataset['Name'].map(lambda name:name.split(',')[1].split('.')[0].strip())
 full_dataset['Title'] = full_dataset['Title'].map(title_dict)
 full_dataset.drop(labels = ['Name'], inplace = True, axis = 1)
@@ -79,13 +81,18 @@ imputer_age = imputer_age.fit(np.reshape(full_dataset.iloc[:, 2].values, (-1, 1)
 full_dataset['Age'] = imputer_age.transform(np.reshape(full_dataset.iloc[:, 2].values, (-1, 1)))
 
 imputer_fare = SimpleImputer(missing_values = np.nan, strategy = 'mean')
-imputer_fare = imputer_fare.fit(np.reshape(full_dataset.iloc[:, 6].values, (-1, 1)))
-full_dataset['Fare'] = imputer_fare.transform(np.reshape(full_dataset.iloc[:, 6].values, (-1, 1)))
+imputer_fare = imputer_fare.fit(np.reshape(full_dataset.iloc[:, 5].values, (-1, 1)))
+full_dataset['Fare'] = imputer_fare.transform(np.reshape(full_dataset.iloc[:, 5].values, (-1, 1)))
+
+imputer_cabin = SimpleImputer(missing_values = np.nan, fill_value = "U", strategy = 'constant')
+imputer_cabin = imputer_cabin.fit(np.reshape(full_dataset.iloc[:, 6].values, (-1, 1)))
+full_dataset['Cabin'] = imputer_cabin.transform(np.reshape(full_dataset.iloc[:, 6].values, (-1, 1)))
+full_dataset['Cabin'] = full_dataset['Cabin'].map(lambda c: c[0])
 
 imputer_embarked = SimpleImputer(missing_values = np.nan, strategy = 'most_frequent')
-imputer_embarked = imputer_embarked.fit(np.reshape(full_dataset.iloc[:, 8].values, (-1, 1)))
-full_dataset['Embarked'] = imputer_embarked.transform(np.reshape(full_dataset.iloc[:, 8].values, (-1, 1)))
-
+imputer_embarked = imputer_embarked.fit(np.reshape(full_dataset.iloc[:, 7].values, (-1, 1)))
+full_dataset['Embarked'] = imputer_embarked.transform(np.reshape(full_dataset.iloc[:, 7].values, (-1, 1)))
+   
 # encoding the categorical variables
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
@@ -93,5 +100,37 @@ from sklearn.compose import ColumnTransformer
 label_encoder = LabelEncoder()
 full_dataset['Pclass'] = label_encoder.fit_transform(full_dataset['Pclass'])
 full_dataset['Sex'] = label_encoder.fit_transform(full_dataset['Sex'])
+full_dataset['Cabin'] = label_encoder.fit_transform(full_dataset['Cabin'])
 full_dataset['Embarked'] = label_encoder.fit_transform(full_dataset['Embarked'])
 full_dataset['Title'] = label_encoder.fit_transform(full_dataset['Title'])
+
+column_tranformer = ColumnTransformer(
+        [('Pclass', OneHotEncoder(categories = 'auto'), [0]),
+         ('Sex', OneHotEncoder(categories = 'auto'), [1]),
+         ('Cabin', OneHotEncoder(categories = 'auto'), [6]),
+         ('Embarked', OneHotEncoder(categories = 'auto'), [7]),
+         ('Title', OneHotEncoder(categories = 'auto'), [8])
+], remainder='passthrough')
+
+full_dataset = column_tranformer.fit_transform(full_dataset)
+
+# removing a few dummy variables
+full_dataset = pd.DataFrame(full_dataset)
+full_dataset = full_dataset.drop(full_dataset.columns[[0, 3, 5, 14, 17]], axis = 1)
+
+# generating the model
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+
+X_train, X_test, Y_train, Y_test = train_test_split(full_dataset[:891], target, test_size = 0.3, random_state = 0)
+
+X_train = X_train.astype(np.float64)
+X_test = X_test.astype(np.float64)
+Y_train = Y_train.astype(np.float64)
+Y_test = Y_test.astype(np.float64)
+
+regressor = DecisionTreeClassifier(criterion = 'gini', splitter='best')
+regressor.fit(X_train, Y_train)
+prediction = regressor.predict(X_test)
+
+# assessing the model
