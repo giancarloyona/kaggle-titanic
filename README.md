@@ -28,9 +28,16 @@ The first model I created used a Decision Tree Regression, but I changed it to a
 
 ## And the final results are...
 
-![results](https://cdn-images-1.medium.com/max/1600/1*qdFdhbR00beEaIKDI_WDCw.gif)
+| Submission | Results   | ML Technique             |
+| :--------- | :-------: | :----------------------: |
+| #1         | *0.70334* | Decision Tree Classifier |
+|            |           |                          |
 
-I'm still working on this, so be patient :)
+For my surprise, the results turned out to be a little better than what I was expecting, but there are still a lot to do.
+
+The next goal is to improve it; Let's say, what about trying to achieve a score of *75%*?
+
+Stay tuned!
 
 ---
 
@@ -38,3 +45,4 @@ I'm still working on this, so be patient :)
 
 * v0.1 -> created the first model (Decision Tree Regression)
 * v0.1.1 -> changed to Decision Tree Classifier
+* v0.1.2 -> generated first results
