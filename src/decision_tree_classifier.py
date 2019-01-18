@@ -10,7 +10,7 @@
     @author: giancarloyona
     @email: gianyona[at]gmail.com
     @date: jan/19
-    @version: 0.1.1
+    @version: 0.1.2
 """
 
 # importing the datasets
@@ -69,11 +69,11 @@ title_dict = {
     "Lady" : "Royalty"
 }
 
-del name
-
 full_dataset['Title'] = full_dataset['Name'].map(lambda name:name.split(',')[1].split('.')[0].strip())
 full_dataset['Title'] = full_dataset['Title'].map(title_dict)
 full_dataset.drop(labels = ['Name'], inplace = True, axis = 1)
+
+del name, title_dict
 
 # parsing the ticket data
 
@@ -101,7 +101,7 @@ imputer_embarked = imputer_embarked.fit(np.reshape(full_dataset.iloc[:, 8].value
 full_dataset['Embarked'] = imputer_embarked.transform(np.reshape(full_dataset.iloc[:, 8].values, (-1, 1)))
    
 # encoding the categorical variables
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OrdinalEncoder, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 
 label_encoder = LabelEncoder()
@@ -113,7 +113,7 @@ full_dataset['Embarked'] = label_encoder.fit_transform(full_dataset['Embarked'])
 full_dataset['Title'] = label_encoder.fit_transform(full_dataset['Title'])
 
 column_tranformer = ColumnTransformer(
-        [('Pclass', OneHotEncoder(categories = 'auto'), [0]),
+        [('Pclass', OrdinalEncoder(categories = 'auto'), [0]),
          ('Sex', OneHotEncoder(categories = 'auto'), [1]),
          ('Ticket', OneHotEncoder(categories = 'auto'), [5]),
          ('Cabin', OneHotEncoder(categories = 'auto'), [7]),
@@ -122,26 +122,32 @@ column_tranformer = ColumnTransformer(
 ], remainder='passthrough', sparse_threshold=0)
 
 full_dataset = column_tranformer.fit_transform(full_dataset)
+full_dataset = pd.DataFrame(full_dataset)
+
+# mapping the Pclass variable to an ordinal variable
+# first class > second class > third class 
+
+pclass_dict = {        
+        2 : 0,
+        1 : 1,
+        0 : 2
+    }
+
+full_dataset[0] = full_dataset[0].map(pclass_dict)
+
+del pclass_dict
 
 # removing a few dummy variables
-full_dataset = pd.DataFrame(full_dataset)
-full_dataset = full_dataset.drop(full_dataset.columns[[0, 3, 5, 14, 17]], axis = 1)
+full_dataset = full_dataset.drop(full_dataset.columns[[1, 3, 10, 19, 22]], axis = 1)
 
 # generating the model
-from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
+regressor = DecisionTreeClassifier(criterion = 'entropy', random_state = 0)
+regressor.fit(full_dataset[:891], target)
+prediction = regressor.predict(full_dataset[891:])
 
-X_train, X_test, Y_train, Y_test = train_test_split(full_dataset[:891], target, test_size = 0.2, random_state = 42)
-
-X_train = X_train.astype(np.float64)
-X_test = X_test.astype(np.float64)
-Y_train = Y_train.astype(np.float64)
-Y_test = Y_test.astype(np.float64)
-
-regressor = DecisionTreeClassifier(criterion = 'gini', splitter='best', random_state = 42)
-regressor.fit(X_train, Y_train)
-prediction = regressor.predict(X_test)
-
-# assessing the model
-from sklearn.metrics import confusion_matrix
-cm = confusion_matrix(Y_test, prediction)
+# exporting the results
+index = np.reshape(np.arange(start = 892, stop = 1310), (-1, 1))
+results = np.append(index, np.reshape(prediction, (-1, 1)), axis = 1)
+results = pd.DataFrame(results, columns = ['PassengerId', 'Survived'])
+results.to_csv('./results.csv', sep = ',', index = False)
