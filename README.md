@@ -18,7 +18,7 @@ As said before, the goal is to predict which group of passengers is more likely 
 
 ### How it was done
 
-For this challenge, I'll be using the [CRISP-DM](https://en.wikipedia.org/wiki/Cross-industry_standard_process_for_data_mining) approach to try to develop the eventual solution. I won't detail every single step of it for now, but I'll try - at least - to describe the the models used in this challenge.
+For this challenge, I've used the [CRISP-DM](https://en.wikipedia.org/wiki/Cross-industry_standard_process_for_data_mining) approach to try to develop the eventual solution. I won't detail every single step of it for now, but I'll try - at least - to describe the the models used in this challenge.
 
 ### ML techniques used
 
@@ -28,16 +28,17 @@ The first model I created used a Decision Tree Regression, but I changed it to a
 
 ## And the final results are...
 
-| Submission | Results   | ML Technique             |
-| :--------- | :-------: | :----------------------: |
-| #1         | *0.70334* | Decision Tree Classifier |
-| #2         | *0.76555* | Random Forest Classifier |
+| Submission | Results       | ML Technique              |
+| :--------- | :-----------: | :-----------------------: |
+| #1         | *0.70334*     | Decision Tree Classifier  |
+| #2         | ***0.76555*** | Random Forest Classifier  |
+| #3         | *0.75598*     | Random Forest Classifier* |
 
 For my surprise, the results turned out to be a little better than what I was expecting, but there are still a lot to do.
 
 The next goal is to improve it; Let's say, what about trying to achieve a score of *80%*?
 
-Stay tuned!
+PS: The third model used the same technique as the second one, but I changed the encoding of a variable (OneHotEncoded instead of Ordinal)
 
 ---
 
