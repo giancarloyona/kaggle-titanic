@@ -1,15 +1,13 @@
 """
     Kaggle Getting Started Prediction Competition
-
+    
     This is a starter's attempt to generate a survival predictor using
     Titanic's sinking data.
-
+    
     This is a revamped version of my previous model
     Based on https://ahmedbesbes.com/how-to-score-08134-in-titanic-kaggle-challenge.html and
     https://www.kaggle.com/arthurtok/introduction-to-ensembling-stacking-in-python
-
-    This model will use the Gradient Boost Classifier to generate the results.
-
+    
     __author__ = giancarloyona
     __email__ = gianyona@gmail.com
     __date__ = jan/19
@@ -20,17 +18,20 @@
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+from sklearn.feature_selection import SelectFromModel
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import KFold
 from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
 
 # importing the data sets
 training_set = pd.read_csv("../datasets/train.csv")
 test_set = pd.read_csv("../datasets/test.csv")
 
-# preparing the data
+# preprocessing the data
+
+# extracting the target data
 target = training_set[['Survived']]
 training_set.drop(labels=['Survived'], inplace=True, axis=1)
 
@@ -40,7 +41,6 @@ full_set.drop(labels=['PassengerId'], inplace=True, axis=1)
 
 # modelling the data
 # extracting the title of each passenger
-
 title = set()
 
 for names in full_set['Name']:
@@ -76,7 +76,6 @@ full_set['FamilySize'] = full_set['SibSp'] + full_set['Parch'] + 1
 
 # is the passenger travelling alone?
 full_set['IsAlone'] = full_set['FamilySize'].map(lambda size: 0 if size > 1 else 1)
-
 full_set.drop(labels=['SibSp', 'Parch'], inplace=True, axis=1)
 
 # parsing the ticket data
@@ -113,43 +112,111 @@ full_set['Title'] = label_encoder.fit_transform(full_set['Title'])
 column_tranformer = ColumnTransformer(
     [('Pclass', OneHotEncoder(categories='auto'), [0]),
      ('Sex', OneHotEncoder(categories='auto'), [1]),
-     ('Ticket', OneHotEncoder(categories='auto'), [5]),
-     ('Cabin', OneHotEncoder(categories='auto'), [7]),
-     ('Embarked', OneHotEncoder(categories='auto'), [8]),
-     ('Title', OneHotEncoder(categories='auto'), [9])
+     ('Ticket', OneHotEncoder(categories='auto'), [3]),
+     ('Cabin', OneHotEncoder(categories='auto'), [5]),
+     ('Embarked', OneHotEncoder(categories='auto'), [6]),
+     ('Title', OneHotEncoder(categories='auto'), [7])
      ], remainder='passthrough', sparse_threshold=0)
 
 full_set = column_tranformer.fit_transform(full_set)
-full_set = pd.DataFrame(full_set)
+training_set = pd.DataFrame(full_set[:891])
+test_set = pd.DataFrame(full_set[891:])
 
-# mapping the Pclass variable to an ordinal variable
-# first class > second class > third class
 
-# pclass_dict = {
-#     2: 0,
-#     1: 1,
-#     0: 2
-# }
-#
-# full_set[0] = full_set[0].map(pclass_dict)
-#
-# del pclass_dict
+# splitting the dataset
+def generate_oof(classifier, x_train, y_train, x_test, k_Fold):
+    """
+        Helper function to generate out-of-fold predictions
+    
+        __args__ : [classifier, training_set, target, test_set, kFold]
+    """
 
-# removing a few dummy variables
-full_set = full_set.drop(full_set.columns[[0, 3, 5, 13, 22, 25]], axis=1)
+    oof_train = np.zeros((x_train.shape[0],))
+    oof_test = np.zeros((x_test.shape[0],))
+    oof_test_skf = np.empty((k_Fold.get_n_splits(x_train), x_test.shape[0]))
 
-# generating the model
-regressor = GradientBoostingClassifier(n_estimators=300, random_state=0)
-regressor.fit(full_set[:891], np.ravel(target))
-prediction = regressor.predict(full_set[891:])
+    for i, (train, test) in enumerate(k_Fold.split(x_train)):
+        x_training = x_train.iloc[train]
+        y_training = y_train.iloc[train]
+        x_te = x_train.iloc[test]
 
-# assessing the model
-kfold = KFold(n_splits=10, random_state=0)
-k_fold_results = cross_val_score(regressor, full_set[:891], np.ravel(target), cv=kfold)
-print(k_fold_results.mean())
+        classifier.fit(x_training, y_training)
+
+        oof_train[test] = classifier.predict(x_te)
+        oof_test_skf[i, :] = classifier.predict(x_test)
+
+    oof_test[:] = oof_test_skf.mean(axis=0)
+    return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1)
+
+
+# creating/fitting the models
+extra_tree = ExtraTreesClassifier(n_estimators=10, random_state=0).fit(training_set, target)
+gradient_boost = GradientBoostingClassifier(n_estimators=100, random_state=0).fit(training_set, target)
+random_forest = RandomForestClassifier(n_estimators=10, random_state=0).fit(training_set, target)
+
+# selecting the most adequate features for the model
+et_model = SelectFromModel(extra_tree, prefit=True)
+et_train = et_model.transform(training_set)
+et_test = et_model.transform(test_set)
+
+gbc_model = SelectFromModel(gradient_boost, prefit=True)
+gbc_train = gbc_model.transform(training_set)
+gbc_test = gbc_model.transform(test_set)
+
+rf_model = SelectFromModel(random_forest, prefit=True)
+rf_train = rf_model.transform(training_set)
+rf_test = rf_model.transform(test_set)
+
+# creating/fitting the models with the optimal variables
+extra_tree = ExtraTreesClassifier(n_estimators=10, random_state=0).fit(et_train, target)
+gradient_boost = GradientBoostingClassifier(n_estimators=100, random_state=0).fit(gbc_train, np.ravel(target))
+random_forest = RandomForestClassifier(n_estimators=10, random_state=0).fit(rf_train, np.ravel(target))
+
+# generating the results
+kf = KFold(10, True)
+et_train, et_test = generate_oof(extra_tree,
+                                 pd.DataFrame(et_train),
+                                 target,
+                                 pd.DataFrame(et_test),
+                                 kf)
+
+gbc_train, gbc_test = generate_oof(gradient_boost,
+                                   pd.DataFrame(gbc_train),
+                                   target,
+                                   pd.DataFrame(gbc_test),
+                                   kf)
+
+rf_train, rf_test = generate_oof(random_forest,
+                                 pd.DataFrame(rf_train),
+                                 target,
+                                 pd.DataFrame(rf_test),
+                                 kf)
+
+# ensembling the models
+x_train = np.concatenate((et_train, gbc_train, rf_train), axis=1)
+x_test = np.concatenate((et_test, gbc_test, rf_test), axis=1)
+
+base_predictions_train = pd.DataFrame({
+    'ExtraTree': et_train.ravel(),
+    'GradientBoost': gbc_train.ravel(),
+    'RandomForest': rf_train.ravel()
+})
+
+gbm = xgb.XGBClassifier(
+    n_estimators=2000,
+    max_depth=4,
+    min_child_weight=2,
+    gamma=0.9,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objectve='binary:logistic',
+    nthread=-1,
+    scale_pos_weight=1).fit(x_train, target)
+
+y_pred = gbm.predict(x_test)
 
 # exporting the results
-# index = np.reshape(np.arange(start=892, stop=1310), (-1, 1))
-# results = np.append(index, np.reshape(prediction, (-1, 1)), axis=1)
-# results = pd.DataFrame(results, columns=['PassengerId', 'Survived'])
-# results.to_csv('../datasets/results_gbc.csv', sep=',', index=False)
+index = np.reshape(np.arange(start=892, stop=1310), (-1, 1))
+results = np.append(index, np.reshape(y_pred, (-1, 1)), axis=1)
+results = pd.DataFrame(results, columns=['PassengerId', 'Survived'])
+results.to_csv('../datasets/results_xgb.csv', sep=',', index=False)
