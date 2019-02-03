@@ -11,7 +11,7 @@
     __author__ = giancarloyona
     __email__ = gianyona@gmail.com
     __date__ = jan/19
-    __version__ = 0.1.2.2
+    __version__ = 0.1.2.3
 """
 
 # importing the libraries needed for the challenge
@@ -23,6 +23,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import KFold
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
 from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
 
 # importing the data sets
@@ -122,7 +124,6 @@ full_set = column_tranformer.fit_transform(full_set)
 training_set = pd.DataFrame(full_set[:891])
 test_set = pd.DataFrame(full_set[891:])
 
-
 # splitting the dataset
 def generate_oof(classifier, x_train, y_train, x_test, k_Fold):
     """
@@ -148,13 +149,22 @@ def generate_oof(classifier, x_train, y_train, x_test, k_Fold):
     oof_test[:] = oof_test_skf.mean(axis=0)
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1)
 
-
 # creating/fitting the models
+decision_tree = DecisionTreeClassifier(criterion='entropy', random_state=0).fit(training_set, target)
+svc = SVC(C=0.25, kernel='linear', random_state=0).fit(training_set, target)
 extra_tree = ExtraTreesClassifier(n_estimators=10, random_state=0).fit(training_set, target)
 gradient_boost = GradientBoostingClassifier(n_estimators=100, random_state=0).fit(training_set, target)
 random_forest = RandomForestClassifier(n_estimators=10, random_state=0).fit(training_set, target)
 
 # selecting the most adequate features for the model
+dt_model = SelectFromModel(decision_tree, prefit=True)
+dt_train = dt_model.transform(training_set)
+dt_test = dt_model.transform(test_set)
+
+svc_model = SelectFromModel(svc, prefit=True)
+svc_train = svc_model.transform(training_set)
+svc_test = svc_model.transform(test_set)
+
 et_model = SelectFromModel(extra_tree, prefit=True)
 et_train = et_model.transform(training_set)
 et_test = et_model.transform(test_set)
@@ -168,12 +178,27 @@ rf_train = rf_model.transform(training_set)
 rf_test = rf_model.transform(test_set)
 
 # creating/fitting the models with the optimal variables
+decision_tree = DecisionTreeClassifier(criterion='entropy', random_state=0).fit(dt_train, target)
+svc = SVC(C=0.25, kernel='linear', random_state=0).fit(svc_train, target)
 extra_tree = ExtraTreesClassifier(n_estimators=10, random_state=0).fit(et_train, target)
 gradient_boost = GradientBoostingClassifier(n_estimators=100, random_state=0).fit(gbc_train, np.ravel(target))
 random_forest = RandomForestClassifier(n_estimators=10, random_state=0).fit(rf_train, np.ravel(target))
 
 # generating the results
 kf = KFold(10, True)
+
+dt_train, dt_test = generate_oof(decision_tree,
+                                 pd.DataFrame(dt_train),
+                                 target,
+                                 pd.DataFrame(dt_test),
+                                 kf)
+
+svc_train, svc_test = generate_oof(svc,
+                                 pd.DataFrame(svc_train),
+                                 target,
+                                 pd.DataFrame(svc_test),
+                                 kf)
+
 et_train, et_test = generate_oof(extra_tree,
                                  pd.DataFrame(et_train),
                                  target,
@@ -193,10 +218,12 @@ rf_train, rf_test = generate_oof(random_forest,
                                  kf)
 
 # ensembling the models
-x_train = np.concatenate((et_train, gbc_train, rf_train), axis=1)
-x_test = np.concatenate((et_test, gbc_test, rf_test), axis=1)
+x_train = np.concatenate((dt_train, svc_train, et_train, gbc_train, rf_train), axis=1)
+x_test = np.concatenate((dt_test, svc_test, et_test, gbc_test, rf_test), axis=1)
 
 base_predictions_train = pd.DataFrame({
+    'DecisionTree': dt_train.ravel(),
+    'SVC': svc_train.ravel(),
     'ExtraTree': et_train.ravel(),
     'GradientBoost': gbc_train.ravel(),
     'RandomForest': rf_train.ravel()
