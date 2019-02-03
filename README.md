@@ -31,7 +31,8 @@ The first model I created used a Decision Tree Regression (which was obviously i
 | #3         | *0.75598*     | Random Forest Classifier*  |
 | #4         | *0.77033*     | Gradient Boost Classifier  |
 | #5         | *0.74162*     | Gradient Boost Classifier* |
-| #6         | ***0.77511*** | XBoost Classifier          |
+| #6         | ***0.77511*** | XGBoost Classifier         |
+| #7         | *0.77511*     | XGBoost Classifier*        |
 
 For my surprise, the results turned out to be a little better than what I was expecting, but there are still a lot to do.
 
